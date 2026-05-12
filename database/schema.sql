@@ -10,6 +10,8 @@ CREATE TABLE USERS (
     di            VARCHAR(64),                  -- 중복가입 방지 식별값
     verified_at   TIMESTAMP    NULL,
     profile_image VARCHAR(255),
+    bio           VARCHAR(500) NULL,            -- 자기소개 (마이페이지)
+    points        INT          NOT NULL DEFAULT 0, -- 활동 포인트 (level은 동적 계산)
     created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -26,7 +28,8 @@ CREATE TABLE FRIENDS (
 );
 
 -- 3. 그룹/ 그룹멤버
-CREATE TABLE GROUPS (
+-- NOTE: `GROUPS`는 MySQL 8.0 예약어이므로 backtick 필수.
+CREATE TABLE `GROUPS` (
     group_id   INT AUTO_INCREMENT PRIMARY KEY,
     name       VARCHAR(100) NOT NULL,
     owner_id   INT          NOT NULL,
@@ -42,8 +45,8 @@ CREATE TABLE GROUP_MEMBERS (
     role       ENUM('owner', 'member') NOT NULL DEFAULT 'member',
     joined_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (group_id, user_id),
-    FOREIGN KEY (group_id) REFERENCES GROUPS(group_id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id)  REFERENCES USERS(user_id)   ON DELETE CASCADE
+    FOREIGN KEY (group_id) REFERENCES `GROUPS`(group_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id)  REFERENCES USERS(user_id)    ON DELETE CASCADE
 );
 
 -- 4. 주소
@@ -67,6 +70,9 @@ CREATE TABLE RESTAURANTS (
     restaurant_id INT AUTO_INCREMENT PRIMARY KEY,
     name          VARCHAR(100) NOT NULL,
     phone         VARCHAR(20),
+    opening_hours VARCHAR(100) NULL,             -- 영업시간 텍스트 (예: 매일 11:00 - 22:00)
+    break_time    VARCHAR(100) NULL,             -- 브레이크타임 (예: 15:00 - 17:00)
+    thumbnail_url VARCHAR(255) NULL,             -- 카드 리스트 대표 이미지
     address_id    INT,
     category_id   INT,
     registered_by INT,                           -- 최초 등록 사용자
@@ -95,7 +101,8 @@ CREATE TABLE MENUS (
     menu_id       INT AUTO_INCREMENT PRIMARY KEY,
     restaurant_id INT          NOT NULL,
     name          VARCHAR(100) NOT NULL,
-    price         INT,                           
+    description   VARCHAR(255) NULL,             -- 메뉴 한 줄 설명
+    price         INT,
     is_signature  BOOLEAN DEFAULT FALSE,         -- BEST 메뉴 인지
     FOREIGN KEY (restaurant_id) REFERENCES RESTAURANTS(restaurant_id) ON DELETE CASCADE
 );
@@ -198,12 +205,27 @@ CREATE TABLE NOTIFICATIONS (
                         'friend_request',
                         'like',
                         'group_invite',
-                        'mention'
+                        'mention',
+                        'comment'
                     ) NOT NULL,
     related_id      INT NULL,                    -- 관련 엔티티 ID (post_id, group_id 등)
     is_read         BOOLEAN   DEFAULT FALSE,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES USERS(user_id) ON DELETE CASCADE
+);
+
+-- 17. 댓글
+CREATE TABLE COMMENTS (
+    comment_id INT AUTO_INCREMENT PRIMARY KEY,
+    post_id    INT  NOT NULL,
+    user_id    INT  NULL,                        -- 작성자 탈퇴 시 NULL 보존
+    content    TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (post_id) REFERENCES POSTS(post_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES USERS(user_id) ON DELETE SET NULL,
+    INDEX idx_comments_post (post_id),
+    INDEX idx_comments_user (user_id)
 );
 
 -- 16. 알림 설정 
