@@ -1,0 +1,36 @@
+# === Core ===
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+
+# === DB ===
+sqlalchemy==2.0.36
+pymysql==1.1.1
+cryptography==44.0.0
+
+# === Settings & Validation ===
+pydantic==2.10.4
+pydantic-settings==2.7.0
+python-dotenv==1.0.1
+
+# === Auth ===
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# === Multipart (file upload) ===
+python-multipart==0.0.19
+
+# === Image validation ===
+Pillow==12.1.0
+
+# === HTTP client (외부 API 호출) ===
+httpx==0.28.1
+
+# === AI (Gemini) ===
+google-generativeai==0.8.3
+
+# === Rate limiting ===
+slowapi==0.1.9
+
+# === Testing ===
+pytest==8.3.4
+pytest-asyncio==0.24.0
