@@ -87,8 +87,10 @@ def serialize_post_brief(
     content = post.content or ""
     return {
         "post_id": post.post_id,
+        "type": post.type or "blog",
         "title": post.title,
         "content_preview": content[:100],
+        "score": post.score,
         "thumbnail_url": post.thumbnail_url,
         "author": post.author,
         "restaurant": serialize_brief(post.restaurant) if post.restaurant else None,
@@ -104,8 +106,10 @@ def serialize_post_detail(
 ) -> dict[str, Any]:
     return {
         "post_id": post.post_id,
+        "type": post.type or "blog",
         "title": post.title,
         "content": post.content,
+        "score": post.score,
         "ai_summary": post.ai_summary,
         "thumbnail_url": post.thumbnail_url,
         "author": post.author,

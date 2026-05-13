@@ -1,7 +1,7 @@
 """RESTAURANTS 테이블 모델."""
 from __future__ import annotations
 
-from sqlalchemy import Column, ForeignKey, Integer, String, TIMESTAMP
+from sqlalchemy import Column, ForeignKey, Integer, String, Text, TIMESTAMP
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -18,6 +18,7 @@ class Restaurant(Base):
         String(100), nullable=True, comment="영업시간 (예: 매일 11:00 - 22:00)"
     )
     break_time = Column(String(100), nullable=True, comment="브레이크타임")
+    description = Column(Text, nullable=True, comment="식당 설명")
     thumbnail_url = Column(
         String(255), nullable=True, comment="카드 리스트 대표 이미지"
     )
@@ -75,6 +76,12 @@ class Restaurant(Base):
         "Scrap",
         back_populates="restaurant",
         cascade="all, delete-orphan",
+    )
+    images = relationship(
+        "Image",
+        back_populates="restaurant",
+        cascade="all, delete-orphan",
+        foreign_keys="Image.restaurant_id",
     )
 
     def __repr__(self) -> str:

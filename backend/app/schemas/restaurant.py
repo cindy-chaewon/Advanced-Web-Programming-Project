@@ -60,6 +60,7 @@ class RestaurantCreate(BaseModel):
     """식당 등록 요청."""
 
     name: str = Field(..., min_length=1, max_length=100)
+    description: str | None = Field(default=None, description="식당 설명")
     phone: str | None = Field(default=None, max_length=20)
     opening_hours: str | None = Field(
         default=None, max_length=100, description="예: 매일 11:00 - 22:00"
@@ -68,6 +69,9 @@ class RestaurantCreate(BaseModel):
         default=None, max_length=100, description="예: 15:00 - 17:00"
     )
     thumbnail_url: str | None = Field(default=None, max_length=255)
+    image_urls: list[str] = Field(
+        default_factory=list, description="식당 갤러리 이미지 URL 목록"
+    )
     category_id: int = Field(..., gt=0)
     address: AddressIn
     hashtags: list[str] = Field(
@@ -80,10 +84,14 @@ class RestaurantUpdate(BaseModel):
     """식당 정보 부분 수정. 보낸 필드만 갱신."""
 
     name: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = Field(default=None)
     phone: str | None = Field(default=None, max_length=20)
     opening_hours: str | None = Field(default=None, max_length=100)
     break_time: str | None = Field(default=None, max_length=100)
     thumbnail_url: str | None = Field(default=None, max_length=255)
+    image_urls: list[str] | None = Field(
+        default=None, description="None=미변경, []=모두 제거, 그 외=전체 교체"
+    )
     category_id: int | None = Field(default=None, gt=0)
     address: AddressIn | None = None
     hashtags: list[str] | None = Field(
@@ -118,10 +126,12 @@ class RestaurantRead(BaseModel):
 
     restaurant_id: int
     name: str
+    description: str | None = None
     phone: str | None = None
     opening_hours: str | None = None
     break_time: str | None = None
     thumbnail_url: str | None = None
+    images: list[str] = Field(default_factory=list, description="식당 갤러리 이미지 URL 목록")
     category: CategoryOut | None = None
     address: AddressOut | None = None
     hashtags: list[str] = Field(default_factory=list)

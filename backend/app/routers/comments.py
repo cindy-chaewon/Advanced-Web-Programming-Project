@@ -102,6 +102,7 @@ def create_comment(
             user_id=post.user_id,
             type="comment",
             related_id=post_id,
+            actor_id=current_user.user_id,
         )
 
     db.commit()

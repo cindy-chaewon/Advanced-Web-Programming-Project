@@ -58,16 +58,18 @@ def _ensure_owner(post: Post, user: User) -> None:
 @router.get(
     "",
     response_model=list[PostBrief],
-    summary="글 목록 (sort=latest|popular|nearby)",
+    summary="글 목록 (sort=latest|popular|nearby, type=blog|simple)",
     description=(
         "- `latest`: 최신순 (created_at desc)\n"
         "- `popular`: 좋아요 많은 순 → 같으면 최신\n"
         "- `nearby`: 사용자 위치 기준 식당 좌표 가까운 순 (`lat`, `lng` 필수)\n"
-        "  - 선택 `radius`(미터)로 반경 컷"
+        "  - 선택 `radius`(미터)로 반경 컷\n"
+        "- `type`: blog 또는 simple 필터 (생략 시 전체)"
     ),
 )
 def list_posts(
     sort: str = Query("latest", pattern="^(latest|popular|nearby)$"),
+    type: str | None = Query(default=None, pattern="^(blog|simple)$", description="글 유형 필터"),
     lat: float | None = Query(default=None, description="nearby 정렬용 중심 위도"),
     lng: float | None = Query(default=None, description="nearby 정렬용 중심 경도"),
     radius: float | None = Query(
@@ -101,9 +103,10 @@ def list_posts(
                 func.coalesce(like_count_subq.c.cnt, 0).desc(),
                 Post.created_at.desc(),
             )
-            .offset(offset)
-            .limit(limit)
         )
+        if type is not None:
+            q = q.filter(Post.type == type)
+        q = q.offset(offset).limit(limit)
         return [
             PostBrief.model_validate(
                 serialize_post_brief(p, current_user=current_user)
@@ -124,6 +127,8 @@ def list_posts(
             .join(Restaurant, Post.restaurant_id == Restaurant.restaurant_id)
             .join(Address, Restaurant.address_id == Address.address_id)
         )
+        if type is not None:
+            q = q.filter(Post.type == type)
         # 1차: bounding box 필터 (radius 있을 때만)
         if radius is not None:
             deg = radius / 111_000.0
@@ -161,12 +166,10 @@ def list_posts(
         ]
 
     # ── latest (default) ──
-    q = (
-        post_query_with_relations(db)
-        .order_by(Post.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-    )
+    q = post_query_with_relations(db).order_by(Post.created_at.desc())
+    if type is not None:
+        q = q.filter(Post.type == type)
+    q = q.offset(offset).limit(limit)
     return [
         PostBrief.model_validate(
             serialize_post_brief(p, current_user=current_user)
@@ -217,6 +220,8 @@ def create_post(
     post = Post(
         user_id=current_user.user_id,
         restaurant_id=body.restaurant_id,
+        type=body.type,
+        score=body.score,
         title=body.title,
         content=body.content,
         thumbnail_url=thumbnail,
@@ -245,12 +250,12 @@ def create_post(
         .all()
     )
     for (uid,) in member_ids:
-        # group_invite 토글로 통합 (그룹 관련 알림)
         create_notification(
             db,
             user_id=uid,
             type="group_invite",
             related_id=post.post_id,
+            actor_id=current_user.user_id,
         )
 
     db.commit()
@@ -278,6 +283,8 @@ def update_post(
         post.title = body.title
     if body.content is not None:
         post.content = body.content
+    if body.score is not None:
+        post.score = body.score
     if body.image_urls is not None:
         replace_post_images(db, post.post_id, body.image_urls)
         # 썸네일이 명시되지 않았으면 새 첫 이미지로 갱신.
@@ -348,6 +355,7 @@ def like_post(
                 user_id=post.user_id,
                 type="like",
                 related_id=post_id,
+                actor_id=current_user.user_id,
             )
         db.commit()
 

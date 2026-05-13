@@ -1,6 +1,6 @@
 """알림 라우터: 목록 + 읽음 처리."""
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
@@ -24,8 +24,10 @@ def list_notifications(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    q = db.query(Notification).filter(
-        Notification.user_id == current_user.user_id
+    q = (
+        db.query(Notification)
+        .options(joinedload(Notification.actor))
+        .filter(Notification.user_id == current_user.user_id)
     )
     if unread_only:
         q = q.filter(Notification.is_read == False)  # noqa: E712

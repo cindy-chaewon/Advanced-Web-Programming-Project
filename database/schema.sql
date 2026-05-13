@@ -69,6 +69,7 @@ CREATE TABLE CATEGORIES (
 CREATE TABLE RESTAURANTS (
     restaurant_id INT AUTO_INCREMENT PRIMARY KEY,
     name          VARCHAR(100) NOT NULL,
+    description   TEXT         NULL,             -- 식당 설명
     phone         VARCHAR(20),
     opening_hours VARCHAR(100) NULL,             -- 영업시간 텍스트 (예: 매일 11:00 - 22:00)
     break_time    VARCHAR(100) NULL,             -- 브레이크타임 (예: 15:00 - 17:00)
@@ -121,17 +122,20 @@ CREATE TABLE RESTAURANT_TAGS (
     FOREIGN KEY (tag_id)        REFERENCES TAGS(tag_id)               ON DELETE CASCADE
 );
 
--- 10. 블로그 글 
+-- 10. 블로그 글 / 간단 리뷰
 CREATE TABLE POSTS (
     post_id       INT AUTO_INCREMENT PRIMARY KEY,
     user_id       INT,
     restaurant_id INT,
+    type          ENUM('blog', 'simple') NOT NULL DEFAULT 'blog', -- 글 유형
+    score         TINYINT NULL,                  -- 별점 1-5 (simple 타입에서만 사용)
     title         VARCHAR(200),
     content       TEXT,
     ai_summary    TEXT         NULL,             -- AI 3줄 요약
     thumbnail_url VARCHAR(255) NULL,             -- 카드 리스트 대표 이미지
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at    TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT ck_post_score CHECK (score IS NULL OR (score BETWEEN 1 AND 5)),
     FOREIGN KEY (user_id)       REFERENCES USERS(user_id)             ON DELETE CASCADE,
     FOREIGN KEY (restaurant_id) REFERENCES RESTAURANTS(restaurant_id) ON DELETE CASCADE
 );
@@ -158,14 +162,16 @@ CREATE TABLE REVIEWS (
     FOREIGN KEY (restaurant_id) REFERENCES RESTAURANTS(restaurant_id) ON DELETE CASCADE
 );
 
--- 12. 이미지
+-- 12. 이미지 (글·리뷰·식당 갤러리에 공통 사용)
 CREATE TABLE IMAGES (
-    image_id  INT AUTO_INCREMENT PRIMARY KEY,
-    url       VARCHAR(255) NOT NULL,
-    post_id   INT NULL,
-    review_id INT NULL,
-    FOREIGN KEY (post_id)   REFERENCES POSTS(post_id)     ON DELETE CASCADE,
-    FOREIGN KEY (review_id) REFERENCES REVIEWS(review_id) ON DELETE CASCADE
+    image_id      INT AUTO_INCREMENT PRIMARY KEY,
+    url           VARCHAR(255) NOT NULL,
+    post_id       INT NULL,
+    review_id     INT NULL,
+    restaurant_id INT NULL,                      -- 식당 갤러리 이미지
+    FOREIGN KEY (post_id)       REFERENCES POSTS(post_id)             ON DELETE CASCADE,
+    FOREIGN KEY (review_id)     REFERENCES REVIEWS(review_id)         ON DELETE CASCADE,
+    FOREIGN KEY (restaurant_id) REFERENCES RESTAURANTS(restaurant_id) ON DELETE CASCADE
 );
 
 -- 13. 좋아요 하트
@@ -209,9 +215,11 @@ CREATE TABLE NOTIFICATIONS (
                         'comment'
                     ) NOT NULL,
     related_id      INT NULL,                    -- 관련 엔티티 ID (post_id, group_id 등)
+    actor_id        INT NULL,                    -- 알림 발신자 (좋아요·댓글·친구요청 보낸 사람)
     is_read         BOOLEAN   DEFAULT FALSE,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES USERS(user_id) ON DELETE CASCADE
+    FOREIGN KEY (user_id)  REFERENCES USERS(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (actor_id) REFERENCES USERS(user_id) ON DELETE SET NULL
 );
 
 -- 17. 댓글

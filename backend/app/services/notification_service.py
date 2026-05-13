@@ -38,14 +38,16 @@ def create_notification(
     user_id: int,
     type: str,
     related_id: int | None = None,
+    actor_id: int | None = None,
     respect_settings: bool = True,
 ) -> Notification | None:
     """알림 row 추가 (commit은 호출자가 책임).
 
     수신자 설정이 OFF면 None 반환하고 row 생성 안 함.
+    actor_id: 알림을 유발한 사용자 ID (좋아요/댓글/친구요청 보낸 사람).
     """
     if respect_settings and not _is_enabled(db, user_id, type):
         return None
-    n = Notification(user_id=user_id, type=type, related_id=related_id)
+    n = Notification(user_id=user_id, type=type, related_id=related_id, actor_id=actor_id)
     db.add(n)
     return n

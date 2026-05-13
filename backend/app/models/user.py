@@ -50,7 +50,10 @@ class User(Base):
 
     # ── 알림 ──
     notifications = relationship(
-        "Notification", back_populates="user", cascade="all, delete-orphan"
+        "Notification",
+        foreign_keys="[Notification.user_id]",
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
     notification_settings = relationship(
         "NotificationSetting",

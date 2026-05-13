@@ -216,6 +216,7 @@ def like_review(
                 user_id=review.user_id,
                 type="like",
                 related_id=review_id,
+                actor_id=current_user.user_id,
             )
         db.commit()
 

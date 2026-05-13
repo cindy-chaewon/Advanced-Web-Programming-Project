@@ -7,6 +7,7 @@ from typing import Any
 from sqlalchemy.orm import Query, Session, selectinload
 
 from app.models.address import Address
+from app.models.image import Image
 from app.models.restaurant import Restaurant
 from app.models.restaurant_score import RestaurantScore
 from app.models.restaurant_tag import RestaurantTag
@@ -135,6 +136,21 @@ def ensure_score_row(db: Session, restaurant_id: int) -> RestaurantScore:
     return score
 
 
+def replace_restaurant_images(db: Session, restaurant_id: int, urls: list[str]) -> None:
+    """식당 기존 이미지 삭제 후 새 URL 목록으로 교체."""
+    db.query(Image).filter(Image.restaurant_id == restaurant_id).delete(
+        synchronize_session=False
+    )
+    db.flush()
+    seen: set[str] = set()
+    for url in urls:
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        db.add(Image(url=url, restaurant_id=restaurant_id))
+    db.flush()
+
+
 def restaurants_query_with_relations(db: Session) -> Query:
     """공통 eager load 옵션."""
     return (
@@ -145,6 +161,7 @@ def restaurants_query_with_relations(db: Session) -> Query:
         .options(
             selectinload(Restaurant.tags).selectinload(RestaurantTag.tag)
         )
+        .options(selectinload(Restaurant.images))
     )
 
 
@@ -172,10 +189,12 @@ def serialize_detail(r: Restaurant) -> dict[str, Any]:
     return {
         "restaurant_id": r.restaurant_id,
         "name": r.name,
+        "description": r.description,
         "phone": r.phone,
         "opening_hours": r.opening_hours,
         "break_time": r.break_time,
         "thumbnail_url": r.thumbnail_url,
+        "images": [img.url for img in r.images if img.restaurant_id == r.restaurant_id],
         "category": r.category,
         "address": r.address,
         "hashtags": [rt.tag.name for rt in r.tags if rt.tag is not None],

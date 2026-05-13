@@ -9,6 +9,7 @@ from app.core.deps import get_current_user
 from app.core.rate_limit import limiter
 from app.models.address import Address
 from app.models.category import Category
+from app.models.image import Image
 from app.models.menu import Menu
 from app.models.post import Post
 from app.models.restaurant import Restaurant
@@ -32,6 +33,7 @@ from app.services.restaurant_service import (
     find_or_create_address,
     find_or_create_tags,
     haversine_meters,
+    replace_restaurant_images,
     restaurants_query_with_relations,
     serialize_brief,
     serialize_detail,
@@ -193,6 +195,7 @@ def create_restaurant(
 
     restaurant = Restaurant(
         name=body.name,
+        description=body.description,
         phone=body.phone,
         opening_hours=body.opening_hours,
         break_time=body.break_time,
@@ -209,6 +212,9 @@ def create_restaurant(
         set_restaurant_tags(
             db, restaurant.restaurant_id, [t.tag_id for t in tags], replace=False
         )
+
+    if body.image_urls:
+        replace_restaurant_images(db, restaurant.restaurant_id, body.image_urls)
 
     ensure_score_row(db, restaurant.restaurant_id)
     db.commit()
@@ -249,6 +255,8 @@ def update_restaurant(
 
     if body.name is not None:
         r.name = body.name
+    if body.description is not None:
+        r.description = body.description
     if body.phone is not None:
         r.phone = body.phone
     if body.opening_hours is not None:
@@ -257,6 +265,8 @@ def update_restaurant(
         r.break_time = body.break_time
     if body.thumbnail_url is not None:
         r.thumbnail_url = body.thumbnail_url
+    if body.image_urls is not None:
+        replace_restaurant_images(db, r.restaurant_id, body.image_urls)
     if body.category_id is not None:
         _ensure_category(db, body.category_id)
         r.category_id = body.category_id

@@ -90,6 +90,7 @@ def request_friend(
         user_id=body.target_user_id,
         type="friend_request",
         related_id=current_user.user_id,
+        actor_id=current_user.user_id,
     )
     db.commit()
     return {"message": "친구 요청을 보냈습니다."}

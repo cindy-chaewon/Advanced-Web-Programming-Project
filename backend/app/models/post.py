@@ -1,7 +1,8 @@
-"""POSTS 테이블 모델 (블로그형 글)."""
+"""POSTS 테이블 모델 (블로그형 글 / 간단 리뷰)."""
 from __future__ import annotations
 
-from sqlalchemy import Column, ForeignKey, Integer, String, Text, TIMESTAMP
+from sqlalchemy import CheckConstraint, Column, ForeignKey, Integer, SmallInteger, String, Text, TIMESTAMP
+from sqlalchemy.dialects.mysql import ENUM
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -10,6 +11,12 @@ from app.core.database import Base
 
 class Post(Base):
     __tablename__ = "POSTS"
+    __table_args__ = (
+        CheckConstraint(
+            "score IS NULL OR (score >= 1 AND score <= 5)",
+            name="ck_post_score",
+        ),
+    )
 
     post_id = Column(Integer, primary_key=True, autoincrement=True, comment="글 ID")
     user_id = Column(
@@ -22,6 +29,13 @@ class Post(Base):
         ForeignKey("RESTAURANTS.restaurant_id", ondelete="CASCADE"),
         comment="연결된 식당",
     )
+    type = Column(
+        ENUM("blog", "simple"),
+        nullable=False,
+        server_default="blog",
+        comment="글 유형: blog=맛집 블로그, simple=간단 리뷰",
+    )
+    score = Column(SmallInteger, nullable=True, comment="별점 1-5 (simple 타입에서만 사용)")
     title = Column(String(200), comment="제목")
     content = Column(Text, comment="본문")
     ai_summary = Column(Text, nullable=True, comment="AI 3줄 요약")
