@@ -1,9 +1,14 @@
 import Avatar from "@/components/ui/Avatar";
 import Button from "@/components/ui/Button";
-import type { Friend } from "@/lib/mockData";
+
+type FriendItemUser = {
+  user_id: number;
+  username: string;
+  profile_image?: string | null;
+};
 
 type FriendItemProps = {
-  friend: Friend;
+  friend: FriendItemUser;
   variant?: "friend" | "request" | "search";
   onAccept?: () => void;
   onReject?: () => void;
@@ -19,10 +24,10 @@ export default function FriendItem({
 }: FriendItemProps) {
   return (
     <div className="flex items-center gap-3 py-3">
-      <Avatar src={friend.avatar} name={friend.name} size="md" />
+      <Avatar src={friend.profile_image ?? undefined} name={friend.username} size="md" />
       <div className="flex-1">
-        <p className="text-sm font-semibold text-text-primary">{friend.name}</p>
-        <p className="text-xs text-text-secondary">{friend.username}</p>
+        <p className="text-sm font-semibold text-text-primary">{friend.username}</p>
+        <p className="text-xs text-text-secondary">@{friend.username}</p>
       </div>
 
       {variant === "request" && (
