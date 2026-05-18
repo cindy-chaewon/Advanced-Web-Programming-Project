@@ -1,29 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { getCategories } from "@/lib/api";
+import type { CategoryOut } from "@/lib/api";
+import { useEffect, useState } from "react";
 
-const HASHTAGS = [
-  "#한식", "#양식", "#일식", "#중식",
-  "#혼밥", "#가성비", "#데이트", "#카페",
-  "#술집", "#분위기", "#배달", "#야식",
-];
+interface Props {
+  selected: string | null;
+  onSelect: (tag: string | null) => void;
+}
 
-export default function HashtagChips() {
-  const [selected, setSelected] = useState<string | null>(null);
+export default function HashtagChips({ selected, onSelect }: Props) {
+  const [categories, setCategories] = useState<CategoryOut[]>([]);
 
-  const toggle = (tag: string) => {
-    setSelected((prev) => (prev === tag ? null : tag));
-  };
+  useEffect(() => {
+    getCategories().then(setCategories).catch(() => {});
+  }, []);
 
   return (
     <div className="flex gap-2 overflow-x-auto px-4 py-2 scrollbar-none" style={{ scrollbarWidth: "none" }}>
-      {HASHTAGS.map((tag) => {
-        const isSelected = selected === tag;
+      {categories.map((cat) => {
+        const isSelected = selected === cat.name;
         return (
           <button
-            key={tag}
+            key={cat.category_id}
             type="button"
-            onClick={() => toggle(tag)}
+            onClick={() => onSelect(isSelected ? null : cat.name)}
             className={[
               "inline-flex h-8 shrink-0 items-center rounded-full px-3.5 text-xs font-semibold shadow-sm transition-colors",
               isSelected
@@ -31,7 +32,7 @@ export default function HashtagChips() {
                 : "bg-white text-text-secondary border border-border",
             ].join(" ")}
           >
-            {tag}
+            {cat.name}
           </button>
         );
       })}

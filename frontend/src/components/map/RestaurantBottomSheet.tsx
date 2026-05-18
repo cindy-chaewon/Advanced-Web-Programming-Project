@@ -1,10 +1,10 @@
 "use client";
 
-import type { RestaurantPin } from "@/lib/mockData";
+import type { MapPin } from "@/lib/api";
 import Link from "next/link";
 
 type RestaurantBottomSheetProps = {
-  pin: RestaurantPin | null;
+  pin: MapPin | null;
   onClose: () => void;
 };
 
@@ -21,46 +21,40 @@ export default function RestaurantBottomSheet({ pin, onClose }: RestaurantBottom
 
   return (
     <>
-      {/* Backdrop */}
       <div className="absolute inset-0 z-30" onClick={onClose} />
 
-      {/* Sheet — z-50으로 네비바(z-40) 위를 덮음 */}
       <div className="absolute bottom-0 left-0 right-0 z-50 rounded-t-3xl bg-white shadow-2xl">
-        {/* Handle */}
         <div className="flex justify-center pt-3 pb-2">
           <div className="h-1 w-10 rounded-full bg-border" />
         </div>
 
         <div className="px-5 pb-17">
-          {/* 태그 */}
           <div className="mb-2 flex gap-1.5 flex-wrap">
-            {pin.tags.slice(0, 3).map((tag) => (
+            {pin.hashtags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
                 className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-brown"
               >
-                {tag}
+                #{tag}
               </span>
             ))}
           </div>
 
-          {/* 식당명 & 카테고리 */}
           <h2 className="text-xl font-bold text-text-primary">{pin.name}</h2>
           <p className="mt-0.5 text-sm text-text-secondary">{pin.category}</p>
 
-          {/* 별점 */}
           <div className="mt-2 flex items-center gap-1">
             <StarIcon />
-            <span className="text-sm font-semibold text-text-primary">{pin.rating.toFixed(1)}</span>
-            <span className="text-sm text-text-secondary">({pin.reviewCount})</span>
+            <span className="text-sm font-semibold text-text-primary">
+              {pin.avg_review_score.toFixed(1)}
+            </span>
+            <span className="text-sm text-text-secondary">({pin.review_count})</span>
           </div>
 
-          {/* 주소 */}
           <p className="mt-1.5 text-xs text-text-secondary">{pin.address}</p>
 
-          {/* 상세보기 버튼 */}
           <Link
-            href={`/restaurants/${pin.id}`}
+            href={`/restaurants/${pin.restaurant_id}`}
             className="mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-primary text-sm font-semibold text-white active:bg-primary/90"
           >
             상세보기

@@ -21,6 +21,23 @@ declare global {
     Size: new (width: number, height: number) => object;
     Point: new (x: number, y: number) => object;
     MarkerImage: new (src: string, size: object, options?: object) => object;
+    services: {
+      Geocoder: new () => KakaoGeocoder;
+      Status: { OK: string };
+    };
+  }
+
+  interface KakaoGeocoder {
+    addressSearch: (
+      query: string,
+      cb: (result: KakaoAddressResult[], status: string) => void,
+    ) => void;
+  }
+
+  interface KakaoAddressResult {
+    address_name: string;
+    x: string;
+    y: string;
   }
 
   interface KakaoMapOptions {
@@ -62,6 +79,7 @@ declare global {
 
   interface KakaoMarker {
     setMap: (map: KakaoMapInstance | null) => void;
+    getMap: () => KakaoMapInstance | null;
     getPosition: () => KakaoLatLng;
   }
 
