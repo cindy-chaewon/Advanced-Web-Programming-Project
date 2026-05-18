@@ -1,3 +1,4 @@
+from __future__ import annotations
 """인증 관련 Pydantic 스키마."""
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 

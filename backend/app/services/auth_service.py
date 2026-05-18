@@ -1,3 +1,4 @@
+from __future__ import annotations
 """인증 비즈니스 로직: 사용자 조회/생성 + 알림 설정 초기화."""
 from typing import Any
 
@@ -8,8 +9,9 @@ from app.models.notification_setting import NotificationSetting
 from app.models.user import User
 
 
-# 카카오 사용자의 USERS.ci 값 prefix (인증서 CI와 충돌 방지).
+# 소셜 로그인 사용자의 USERS.ci prefix (인증서 CI와 충돌 방지).
 KAKAO_CI_PREFIX = "kakao:"
+GOOGLE_CI_PREFIX = "google:"
 
 
 def _ensure_notification_settings(db: Session, user_id: int) -> None:
@@ -87,6 +89,50 @@ def get_or_create_kakao_user(
     )
     db.add(user)
     db.flush()  # user_id 확보
+    _ensure_notification_settings(db, user.user_id)
+    db.commit()
+    db.refresh(user)
+    return user, True
+
+
+def get_or_create_google_user(
+    db: Session,
+    google_profile: dict[str, Any],
+) -> tuple[User, bool]:
+    google_id = str(google_profile.get("id", ""))
+    if not google_id:
+        raise ValueError("구글 응답에 `id`가 없습니다.")
+
+    email: str | None = google_profile.get("email")
+    nickname: str = google_profile.get("name") or f"google_{google_id[:8]}"
+    profile_image: str | None = google_profile.get("picture")
+
+    ci_value = f"{GOOGLE_CI_PREFIX}{google_id}"
+
+    user = db.query(User).filter(User.ci == ci_value).first()
+    if user is not None:
+        changed = False
+        if email and not user.email:
+            user.email = email
+            changed = True
+        if profile_image and not user.profile_image:
+            user.profile_image = profile_image
+            changed = True
+        if changed:
+            db.commit()
+            db.refresh(user)
+        return user, False
+
+    user = User(
+        username=nickname[:50],
+        email=email,
+        ci=ci_value,
+        di=None,
+        profile_image=profile_image,
+        verified_at=func.now(),
+    )
+    db.add(user)
+    db.flush()
     _ensure_notification_settings(db, user.user_id)
     db.commit()
     db.refresh(user)

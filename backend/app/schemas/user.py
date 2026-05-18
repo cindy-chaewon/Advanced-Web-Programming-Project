@@ -1,3 +1,4 @@
+from __future__ import annotations
 """사용자 관련 Pydantic 스키마."""
 from datetime import datetime
 

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """카카오 OAuth + 사용자 정보 API 클라이언트."""
 from typing import Any
 

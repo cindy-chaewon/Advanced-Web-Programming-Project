@@ -1,4 +1,6 @@
 """사용자 라우터: 마이페이지 + 프로필 수정/탈퇴 + 검색/조회 + 알림 설정."""
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -278,7 +280,7 @@ def search_users(
     nickname: str = Query(..., min_length=1, max_length=50),
     limit: int = Query(20, ge=1, le=50),
     db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_optional_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     rows = (
         db.query(User)
@@ -316,7 +318,7 @@ def search_users(
 def check_nickname(
     q: str = Query(..., min_length=1, max_length=50),
     db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_optional_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     target = q.strip()
     if not target:
@@ -345,7 +347,7 @@ def check_nickname(
 def get_user_profile(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_optional_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     u = db.query(User).filter(User.user_id == user_id).first()
     if u is None:

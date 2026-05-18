@@ -1,3 +1,4 @@
+from __future__ import annotations
 """알림 생성 헬퍼 (다른 도메인에서 호출).
 
 `respect_settings=True`면 수신자의 NOTIFICATION_SETTINGS에서 해당 타입이 OFF면

@@ -7,6 +7,7 @@ from app.core.deps import get_current_user
 from app.models.group import Group
 from app.models.group_member import GroupMember
 from app.models.post import Post
+from app.models.group_restaurant import GroupRestaurant
 from app.models.restaurant import Restaurant
 from app.models.user import User
 from app.schemas.group import (
@@ -305,7 +306,7 @@ def remove_member(
 @router.get(
     "/{group_id}/restaurants",
     response_model=list[RestaurantBrief],
-    summary="그룹 통합 지도 — 멤버들이 등록한 식당 모음",
+    summary="그룹 통합 지도 — 멤버들이 그룹에 등록한 식당 모음",
 )
 def group_restaurants(
     group_id: int,
@@ -315,14 +316,11 @@ def group_restaurants(
     _get_group_or_404(db, group_id)
     _ensure_member(db, group_id, current_user.user_id)
 
-    member_ids = _member_user_ids(db, group_id)
-    if not member_ids:
-        return []
-
     restaurants = (
         restaurants_query_with_relations(db)
-        .filter(Restaurant.registered_by.in_(member_ids))
-        .order_by(Restaurant.created_at.desc())
+        .join(GroupRestaurant, Restaurant.restaurant_id == GroupRestaurant.restaurant_id)
+        .filter(GroupRestaurant.group_id == group_id)
+        .order_by(GroupRestaurant.added_at.desc())
         .all()
     )
     return [RestaurantBrief.model_validate(serialize_brief(r)) for r in restaurants]

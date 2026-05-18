@@ -1,3 +1,4 @@
+from __future__ import annotations
 """식당/주소/카테고리/점수 Pydantic 스키마."""
 from datetime import datetime
 from decimal import Decimal
@@ -77,6 +78,10 @@ class RestaurantCreate(BaseModel):
     hashtags: list[str] = Field(
         default_factory=list,
         description="해시태그 이름 목록 (# 제외)",
+    )
+    group_ids: list[int] = Field(
+        default_factory=list,
+        description="추가할 그룹 ID 목록 (등록자가 멤버인 그룹만 반영)",
     )
 
 

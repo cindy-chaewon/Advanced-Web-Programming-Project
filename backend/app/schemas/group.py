@@ -1,3 +1,4 @@
+from __future__ import annotations
 """그룹 Pydantic 스키마."""
 from datetime import datetime
 

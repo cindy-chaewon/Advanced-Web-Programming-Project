@@ -1,3 +1,4 @@
+from __future__ import annotations
 """JWT 생성/검증."""
 from datetime import datetime, timedelta, timezone
 from typing import Any

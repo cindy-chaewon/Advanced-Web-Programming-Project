@@ -1,3 +1,4 @@
+from __future__ import annotations
 """블로그 글(Post) / 간단 리뷰(simple) Pydantic 스키마."""
 from datetime import datetime
 from typing import Literal

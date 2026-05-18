@@ -1,5 +1,6 @@
 """식당 라우터: 지도 검색, 검색, CRUD, 점수, 메뉴(중첩)."""
 from decimal import Decimal
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
@@ -13,6 +14,8 @@ from app.models.image import Image
 from app.models.menu import Menu
 from app.models.post import Post
 from app.models.restaurant import Restaurant
+from app.models.group_member import GroupMember
+from app.models.group_restaurant import GroupRestaurant
 from app.models.restaurant_tag import RestaurantTag
 from app.models.review import Review
 from app.models.scrap import Scrap
@@ -100,7 +103,7 @@ def list_restaurants_nearby(
     lat: float = Query(..., description="중심 위도"),
     lng: float = Query(..., description="중심 경도"),
     radius: float = Query(2000.0, ge=10.0, le=50_000.0, description="반경 (미터)"),
-    category_id: int | None = Query(default=None, description="카테고리 필터"),
+    category_id: Optional[int] = Query(default=None, description="카테고리 필터"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
@@ -147,9 +150,9 @@ def list_restaurants_nearby(
     summary="식당 검색 (이름 / 해시태그 / 카테고리)",
 )
 def search_restaurants(
-    q: str | None = Query(default=None, description="식당명 LIKE 검색"),
-    tag: str | None = Query(default=None, description="해시태그 (# 제외)"),
-    category_id: int | None = Query(default=None),
+    q: Optional[str] = Query(default=None, description="식당명 LIKE 검색"),
+    tag: Optional[str] = Query(default=None, description="해시태그 (# 제외)"),
+    category_id: Optional[int] = Query(default=None),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
@@ -215,6 +218,17 @@ def create_restaurant(
 
     if body.image_urls:
         replace_restaurant_images(db, restaurant.restaurant_id, body.image_urls)
+
+    for gid in body.group_ids:
+        is_member = db.query(GroupMember).filter_by(
+            group_id=gid, user_id=current_user.user_id
+        ).first()
+        if is_member:
+            db.add(GroupRestaurant(
+                group_id=gid,
+                restaurant_id=restaurant.restaurant_id,
+                added_by=current_user.user_id,
+            ))
 
     ensure_score_row(db, restaurant.restaurant_id)
     db.commit()

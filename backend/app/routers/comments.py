@@ -1,4 +1,6 @@
 """댓글 라우터: 글 nested(GET·POST) + 단독(PUT·DELETE)."""
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -50,7 +52,7 @@ def list_comments(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_optional_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     if (
         db.query(Post.post_id).filter(Post.post_id == post_id).first() is None

@@ -49,6 +49,17 @@ CREATE TABLE GROUP_MEMBERS (
     FOREIGN KEY (user_id)  REFERENCES USERS(user_id)    ON DELETE CASCADE
 );
 
+CREATE TABLE GROUP_RESTAURANTS (
+    group_id      INT NOT NULL,
+    restaurant_id INT NOT NULL,
+    added_by      INT NOT NULL,
+    added_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (group_id, restaurant_id),
+    FOREIGN KEY (group_id)      REFERENCES `GROUPS`(group_id)           ON DELETE CASCADE,
+    FOREIGN KEY (restaurant_id) REFERENCES RESTAURANTS(restaurant_id)   ON DELETE CASCADE,
+    FOREIGN KEY (added_by)      REFERENCES USERS(user_id)               ON DELETE CASCADE
+);
+
 -- 4. 주소
 CREATE TABLE ADDRESSES (
     address_id   INT AUTO_INCREMENT PRIMARY KEY,

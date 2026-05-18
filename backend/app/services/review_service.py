@@ -1,3 +1,4 @@
+from __future__ import annotations
 """리뷰(Review) 도메인 서비스."""
 from typing import Any
 
@@ -48,6 +49,7 @@ def serialize_review(
         "score": review.score,
         "author": review.author,
         "restaurant_id": review.restaurant_id,
+        "restaurant_name": review.restaurant.name if review.restaurant else None,
         "images": [img.url for img in review.images],
         "like_count": len(review.likes),
         "is_liked": is_review_liked_loaded(review, current_user),

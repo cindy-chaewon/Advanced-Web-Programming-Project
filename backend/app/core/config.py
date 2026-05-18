@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Application settings (loaded from .env)."""
 from functools import lru_cache
 
@@ -41,6 +42,11 @@ class Settings(BaseSettings):
     KAKAO_CLIENT_ID: str = ""
     KAKAO_CLIENT_SECRET: str = ""
     KAKAO_REDIRECT_URI: str = ""
+
+    # === Google OAuth ===
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = ""
 
     # === Kakao Map ===
     KAKAO_MAP_API_KEY: str = ""

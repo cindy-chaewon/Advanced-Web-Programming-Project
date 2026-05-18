@@ -1,3 +1,4 @@
+from __future__ import annotations
 """친구 도메인 서비스."""
 from typing import Any
 

@@ -1,5 +1,6 @@
 """블로그 글 라우터: CRUD + 좋아요 + AI 요약."""
 from decimal import Decimal
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func
@@ -69,10 +70,10 @@ def _ensure_owner(post: Post, user: User) -> None:
 )
 def list_posts(
     sort: str = Query("latest", pattern="^(latest|popular|nearby)$"),
-    type: str | None = Query(default=None, pattern="^(blog|simple)$", description="글 유형 필터"),
-    lat: float | None = Query(default=None, description="nearby 정렬용 중심 위도"),
-    lng: float | None = Query(default=None, description="nearby 정렬용 중심 경도"),
-    radius: float | None = Query(
+    type: Optional[str] = Query(default=None, pattern="^(blog|simple)$", description="글 유형 필터"),
+    lat: Optional[float] = Query(default=None, description="nearby 정렬용 중심 위도"),
+    lng: Optional[float] = Query(default=None, description="nearby 정렬용 중심 경도"),
+    radius: Optional[float] = Query(
         default=None,
         ge=10.0,
         le=50_000.0,
@@ -81,7 +82,7 @@ def list_posts(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_optional_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     # ── popular: POST_LIKES 카운트 desc + tie breaker created_at desc ──
     if sort == "popular":
@@ -182,7 +183,7 @@ def list_posts(
 def get_post(
     post_id: int,
     db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_optional_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     post = _get_post_or_404(db, post_id)
     return PostRead.model_validate(

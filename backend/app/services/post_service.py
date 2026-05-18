@@ -1,3 +1,4 @@
+from __future__ import annotations
 """블로그 글(Post) 도메인 서비스."""
 from typing import Any
 

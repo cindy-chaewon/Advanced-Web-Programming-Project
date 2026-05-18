@@ -1,4 +1,6 @@
 """리뷰 라우터: 식당 nested(GET·POST) + 단독 (PUT·DELETE·LIKE)."""
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -71,11 +73,11 @@ def _ensure_restaurant_exists(db: Session, restaurant_id: int) -> None:
 )
 def list_reviews_for_restaurant(
     restaurant_id: int,
-    type: str | None = Query(default=None, pattern="^(simple|blog)$"),
+    type: Optional[str] = Query(default=None, pattern="^(simple|blog)$"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_optional_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     _ensure_restaurant_exists(db, restaurant_id)
 

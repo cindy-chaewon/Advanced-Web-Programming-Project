@@ -20,7 +20,10 @@ passlib[bcrypt]==1.7.4
 python-multipart==0.0.19
 
 # === Image validation ===
-Pillow==12.1.0
+Pillow==11.3.0
+
+# === Python 3.9 compatibility ===
+eval_type_backport
 
 # === HTTP client (외부 API 호출) ===
 httpx==0.28.1

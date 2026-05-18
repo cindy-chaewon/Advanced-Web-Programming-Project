@@ -1,3 +1,4 @@
+from __future__ import annotations
 """FastAPI 공용 의존성 (현재 로그인 사용자 등)."""
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer

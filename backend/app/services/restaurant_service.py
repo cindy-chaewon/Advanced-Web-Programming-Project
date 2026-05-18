@@ -1,3 +1,4 @@
+from __future__ import annotations
 """식당 도메인 비즈니스 로직."""
 from collections.abc import Sequence
 from decimal import Decimal

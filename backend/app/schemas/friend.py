@@ -1,3 +1,4 @@
+from __future__ import annotations
 """친구 Pydantic 스키마."""
 from datetime import datetime
 from typing import Literal

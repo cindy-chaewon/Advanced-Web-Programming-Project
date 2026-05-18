@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Gemini API 호출 헬퍼.
 
 - 모델: gemini-2.5-flash (2026-05 기준 안정 최신, 무료 tier 가용)

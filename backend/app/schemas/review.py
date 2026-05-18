@@ -1,3 +1,4 @@
+from __future__ import annotations
 """리뷰(Review) Pydantic 스키마."""
 from datetime import datetime
 from typing import Literal
@@ -29,6 +30,7 @@ class ReviewOut(BaseModel):
     score: int | None = None
     author: UserPublic
     restaurant_id: int
+    restaurant_name: str | None = None
     images: list[str] = Field(default_factory=list)
     like_count: int = 0
     is_liked: bool = False

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """검색 자동완성·추천 Pydantic 스키마."""
 from pydantic import BaseModel, Field
 

@@ -1,4 +1,6 @@
 """인증 라우터: 카카오 OAuth + 인증서 로그인 + 로그아웃."""
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -17,11 +19,16 @@ from app.schemas.auth import (
 )
 from app.services.auth_service import (
     get_or_create_cert_user,
+    get_or_create_google_user,
     get_or_create_kakao_user,
 )
 from app.services.kakao import (
     exchange_code_for_token,
     get_kakao_user_info,
+)
+from app.services.google import (
+    exchange_code_for_token as google_exchange_code_for_token,
+    get_google_user_info,
 )
 
 
@@ -87,7 +94,7 @@ async def kakao_login(request: Request, body: KakaoLogin, db: Session = Depends(
 )
 async def kakao_callback(
     code: str = Query(..., description="카카오에서 전달한 인가 코드"),
-    state: str | None = Query(default=None),
+    state: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
 ):
     token_data = await exchange_code_for_token(code=code)
@@ -111,6 +118,37 @@ async def kakao_callback(
     )
     if state:
         redirect_url += f"&state={state}"
+    return RedirectResponse(url=redirect_url)
+
+
+# ─────────────────────────── 구글 OAuth ───────────────────────────
+
+
+@router.get(
+    "/google/callback",
+    summary="구글 OAuth 콜백",
+)
+async def google_callback(
+    code: str = Query(..., description="구글에서 전달한 인가 코드"),
+    db: Session = Depends(get_db),
+):
+    token_data = await google_exchange_code_for_token(code=code)
+    google_token = token_data.get("access_token")
+    if not google_token:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="구글에서 access_token을 받지 못했습니다.",
+        )
+
+    google_profile = await get_google_user_info(google_token)
+    user, is_new = get_or_create_google_user(db, google_profile)
+    jwt_token = create_access_token(subject=user.user_id)
+
+    frontend_origin = settings.cors_origins_list[0] if settings.cors_origins_list else "http://localhost:3000"
+    redirect_url = (
+        f"{frontend_origin}/auth/callback?token={jwt_token}"
+        f"&is_new={'true' if is_new else 'false'}"
+    )
     return RedirectResponse(url=redirect_url)
 
 
