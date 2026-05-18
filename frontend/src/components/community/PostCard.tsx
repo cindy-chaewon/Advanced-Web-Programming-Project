@@ -1,10 +1,11 @@
+import type { PostBrief } from "@/lib/api";
+import { timeAgo } from "@/lib/api";
 import StarRating from "@/components/restaurant/StarRating";
 import Avatar from "@/components/ui/Avatar";
-import type { Post } from "@/lib/mockData";
 import Link from "next/link";
 
 type PostCardProps = {
-  post: Post;
+  post: PostBrief;
 };
 
 function HeartIcon() {
@@ -24,29 +25,31 @@ function CommentIcon() {
 }
 
 export default function PostCard({ post }: PostCardProps) {
+  const restaurantName = post.restaurant?.name ?? "";
+  const authorName = post.author.username;
+
   if (post.type === "blog") {
     return (
-      <Link href={`/community/${post.id}`} className="block">
-        {/* 블로그형 - 큰 이미지 카드 */}
+      <Link href={`/community/${post.post_id}`} className="block">
         <div className="overflow-hidden rounded-2xl border border-border bg-white">
-          {post.imageUrl && (
-            <div className="flex h-44 items-center justify-center bg-surface text-5xl">
-              🍽️
-            </div>
+          {post.thumbnail_url && (
+            <div className="flex h-44 items-center justify-center bg-surface text-5xl">🍽️</div>
           )}
           <div className="p-4">
             <div className="mb-2 flex items-center gap-2">
-              <Avatar src={post.author.avatar} name={post.author.name} size="xs" />
-              <span className="text-xs font-medium text-text-secondary">{post.author.name}</span>
-              <span className="text-xs text-text-disabled">{post.createdAt}</span>
+              <Avatar src={post.author.profile_image ?? undefined} name={authorName} size="xs" />
+              <span className="text-xs font-medium text-text-secondary">{authorName}</span>
+              <span className="text-xs text-text-disabled">{timeAgo(post.created_at)}</span>
             </div>
-            <h3 className="mb-1 text-base font-bold text-text-primary line-clamp-2">{post.title}</h3>
-            <p className="mb-2 text-sm text-text-secondary line-clamp-2">{post.content}</p>
+            <h3 className="mb-1 text-base font-bold text-text-primary line-clamp-2">
+              {post.title ?? post.content_preview}
+            </h3>
+            <p className="mb-2 text-sm text-text-secondary line-clamp-2">{post.content_preview}</p>
             <div className="flex items-center gap-3">
-              <span className="text-xs font-medium text-brown">{post.restaurant.name}</span>
+              <span className="text-xs font-medium text-brown">{restaurantName}</span>
               <div className="flex gap-3 text-xs text-text-secondary ml-auto">
-                <span className="flex items-center gap-1"><HeartIcon />{post.likeCount}</span>
-                <span className="flex items-center gap-1"><CommentIcon />{post.commentCount}</span>
+                <span className="flex items-center gap-1"><HeartIcon />{post.like_count}</span>
+                <span className="flex items-center gap-1"><CommentIcon />{post.comment_count}</span>
               </div>
             </div>
           </div>
@@ -56,23 +59,22 @@ export default function PostCard({ post }: PostCardProps) {
   }
 
   return (
-    <Link href={`/community/${post.id}`} className="block">
-      {/* 간단리뷰형 - 컴팩트 */}
+    <Link href={`/community/${post.post_id}`} className="block">
       <div className="flex gap-3 border-b border-border py-3">
-        <Avatar src={post.author.avatar} name={post.author.name} size="sm" />
+        <Avatar src={post.author.profile_image ?? undefined} name={authorName} size="sm" />
         <div className="flex flex-1 flex-col gap-1">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-text-primary">{post.author.name}</span>
-            <span className="text-xs text-text-disabled">{post.createdAt}</span>
+            <span className="text-sm font-medium text-text-primary">{authorName}</span>
+            <span className="text-xs text-text-disabled">{timeAgo(post.created_at)}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-brown">{post.restaurant.name}</span>
-            <StarRating value={post.rating} size={11} />
+            <span className="text-xs font-medium text-brown">{restaurantName}</span>
+            {post.score && <StarRating value={post.score} size={11} />}
           </div>
-          <p className="text-sm text-text-secondary line-clamp-2">{post.content}</p>
+          <p className="text-sm text-text-secondary line-clamp-2">{post.content_preview}</p>
           <div className="flex gap-3 text-xs text-text-secondary">
-            <span className="flex items-center gap-1"><HeartIcon />{post.likeCount}</span>
-            <span className="flex items-center gap-1"><CommentIcon />{post.commentCount}</span>
+            <span className="flex items-center gap-1"><HeartIcon />{post.like_count}</span>
+            <span className="flex items-center gap-1"><CommentIcon />{post.comment_count}</span>
           </div>
         </div>
       </div>
