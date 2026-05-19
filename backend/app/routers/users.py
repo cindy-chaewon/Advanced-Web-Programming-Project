@@ -371,3 +371,98 @@ def get_user_profile(
         friend_count=stats["friend_count"],
         friend_status=friend_status,
     )
+
+
+def _ensure_can_view_profile(
+    db: Session, viewer: User, target_user_id: int
+) -> str:
+    """타인 활동 조회 권한 체크. 본인이거나 친구 관계일 때만 허용."""
+    if viewer.user_id == target_user_id:
+        return "self"
+    statuses = compute_friend_statuses(db, viewer.user_id, [target_user_id])
+    fs = statuses.get(target_user_id, "none")
+    if fs != "accepted":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="친구만 이 사용자의 활동을 볼 수 있습니다.",
+        )
+    return fs
+
+
+@router.get(
+    "/{user_id}/posts",
+    response_model=list[PostBrief],
+    summary="다른 사용자가 쓴 글 (친구만 조회 가능)",
+)
+def get_user_posts(
+    user_id: int,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _ensure_can_view_profile(db, current_user, user_id)
+    posts = (
+        post_query_with_relations(db)
+        .filter(Post.user_id == user_id)
+        .order_by(Post.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return [
+        PostBrief.model_validate(serialize_post_brief(p, current_user=current_user))
+        for p in posts
+    ]
+
+
+@router.get(
+    "/{user_id}/reviews",
+    response_model=list[ReviewOut],
+    summary="다른 사용자가 쓴 리뷰 (친구만 조회 가능)",
+)
+def get_user_reviews(
+    user_id: int,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _ensure_can_view_profile(db, current_user, user_id)
+    reviews = (
+        review_query_with_relations(db)
+        .filter(Review.user_id == user_id)
+        .order_by(Review.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return [
+        ReviewOut.model_validate(serialize_review(r, current_user=current_user))
+        for r in reviews
+    ]
+
+
+@router.get(
+    "/{user_id}/scraps",
+    response_model=list[RestaurantBrief],
+    summary="다른 사용자가 스크랩한 식당 (친구만 조회 가능)",
+)
+def get_user_scraps(
+    user_id: int,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _ensure_can_view_profile(db, current_user, user_id)
+    rows = (
+        restaurants_query_with_relations(db)
+        .join(Scrap, Scrap.restaurant_id == Restaurant.restaurant_id)
+        .filter(Scrap.user_id == user_id)
+        .order_by(Scrap.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return [RestaurantBrief.model_validate(serialize_brief(r)) for r in rows]
