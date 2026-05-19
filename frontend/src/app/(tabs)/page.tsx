@@ -4,12 +4,14 @@ import HashtagChips from "@/components/map/HashtagChips";
 import KakaoMap from "@/components/map/KakaoMap";
 import RestaurantBottomSheet from "@/components/map/RestaurantBottomSheet";
 import Avatar from "@/components/ui/Avatar";
+import { ApiError, api } from "@/lib/api";
 import type { RestaurantPin } from "@/lib/mockData";
-import { getNearbyPins, SAMPLE_PINS } from "@/lib/mockData";
+import type { RestaurantBriefApi } from "@/types/api";
+import { toRestaurantPin } from "@/types/api";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
-const DEFAULT_CENTER = { lat: 37.5665, lng: 126.978 };
+const DEFAULT_CENTER = { lat: 37.4516, lng: 127.1306 };
 
 type UserLocation = { lat: number; lng: number };
 
@@ -69,27 +71,56 @@ function getLocation(): Promise<UserLocation> {
   });
 }
 
+const SEARCH_RADIUS_M = 2000;
+
 export default function MainMapPage() {
   const [selectedPin, setSelectedPin] = useState<RestaurantPin | null>(null);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [locating, setLocating] = useState(false);
+  const [pins, setPins] = useState<RestaurantPin[]>([]);
+  const [pinsError, setPinsError] = useState<string | null>(null);
+  const [locationDenied, setLocationDenied] = useState(false);
+  const [denyDismissed, setDenyDismissed] = useState(false);
 
   // 첫 진입 시 위치 자동 획득
   useEffect(() => {
     setLocating(true);
     getLocation()
-      .then(setUserLocation)
-      .catch(() => {}) // 실패 시 기본 위치 사용
+      .then((loc) => {
+        setUserLocation(loc);
+        setLocationDenied(false);
+      })
+      .catch((err: GeolocationPositionError | Error) => {
+        if ("code" in err && err.code === 1) setLocationDenied(true);
+      })
       .finally(() => setLocating(false));
   }, []);
 
-  // 현재 위치 기준 주변 핀 (없으면 기본 목업 핀)
-  const nearbyPins = useMemo(
-    () => (userLocation ? getNearbyPins(userLocation.lat, userLocation.lng) : SAMPLE_PINS),
-    [userLocation],
-  );
-
   const mapCenter = userLocation ?? DEFAULT_CENTER;
+
+  // 지도 중심 변경 시 주변 식당 API 호출
+  useEffect(() => {
+    const ac = new AbortController();
+    setPinsError(null);
+    api
+      .get<RestaurantBriefApi[]>("/restaurants", {
+        query: {
+          lat: mapCenter.lat,
+          lng: mapCenter.lng,
+          radius: SEARCH_RADIUS_M,
+          limit: 200,
+        },
+        auth: false,
+        signal: ac.signal,
+      })
+      .then((data) => setPins(data.map(toRestaurantPin)))
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        const msg = err instanceof ApiError ? err.message : "식당을 불러오지 못했어요";
+        setPinsError(msg);
+      });
+    return () => ac.abort();
+  }, [mapCenter.lat, mapCenter.lng]);
 
   const handleLocateMe = () => {
     setLocating(true);
@@ -102,13 +133,43 @@ export default function MainMapPage() {
   return (
     <div className="relative h-full overflow-hidden">
       <KakaoMap
-        pins={nearbyPins}
+        pins={pins}
         center={mapCenter}
         level={4}
         onPinClick={setSelectedPin}
         currentLocation={userLocation ?? undefined}
         className="h-full"
       />
+
+      {pinsError && (
+        <div className="absolute left-1/2 top-20 z-30 -translate-x-1/2 rounded-full bg-red-500/90 px-4 py-2 text-xs text-white shadow-lg">
+          {pinsError}
+        </div>
+      )}
+
+      {locationDenied && !denyDismissed && (
+        <div className="absolute inset-x-4 top-28 z-40 rounded-2xl bg-white p-4 shadow-lg ring-1 ring-border">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-xl">
+              📍
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-text-primary">위치 정보가 필요해요</p>
+              <p className="mt-0.5 text-xs text-text-secondary">
+                내 주변 맛집을 보려면 위치 권한을 허용해주세요. 가천대 글로벌캠을 기본으로
+                보여드릴게요.
+              </p>
+              <button
+                type="button"
+                onClick={() => setDenyDismissed(true)}
+                className="mt-2 rounded-lg bg-surface px-3 py-1.5 text-xs font-semibold text-text-secondary"
+              >
+                나중에 하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 상단 오버레이 */}
       <div className="absolute inset-x-0 top-0 z-20 flex flex-col gap-2">

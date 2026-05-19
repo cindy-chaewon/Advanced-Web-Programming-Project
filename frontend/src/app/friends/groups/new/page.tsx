@@ -4,22 +4,63 @@ import FriendItem from "@/components/friends/FriendItem";
 import PageHeader from "@/components/layout/PageHeader";
 import Button from "@/components/ui/Button";
 import TextInput from "@/components/ui/TextInput";
-import { SAMPLE_FRIENDS } from "@/lib/mockData";
-import { useState } from "react";
+import { ApiError, api } from "@/lib/api";
+import { isLoggedIn } from "@/lib/auth";
+import type { Friend } from "@/lib/mockData";
+import type { FriendApi } from "@/types/api";
+import { toFriend } from "@/types/api";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
+type CreatedGroup = { group_id: number };
 
 const EMOJIS = ["🍜", "🍕", "☕", "🍣", "🥗", "🍻", "🍱", "🎉"];
-const ACCEPTED_FRIENDS = SAMPLE_FRIENDS.filter((f) => f.status === "friend");
 
 export default function GroupNewPage() {
+  const router = useRouter();
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
   const [selectedEmoji, setSelectedEmoji] = useState("🍜");
-  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isLoggedIn()) {
+      router.replace("/login");
+      return;
+    }
+    const ac = new AbortController();
+    api
+      .get<FriendApi[]>("/friends", { signal: ac.signal })
+      .then((fs) => setFriends(fs.map(toFriend).filter((f) => f.status === "friend")))
+      .catch(() => {});
+    return () => ac.abort();
+  }, [router]);
 
   const toggleMember = (id: string) => {
-    setSelectedMembers((prev) =>
-      prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id],
-    );
+    setSelectedMembers((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (!name.trim()) return;
+    setSubmitting(true);
+    try {
+      const created = await api.post<CreatedGroup>("/groups", {
+        name: name.trim(),
+        icon: selectedEmoji,
+        color: "orange",
+        invite_user_ids: Array.from(selectedMembers).map((id) => Number(id)),
+      });
+      router.replace(`/friends/groups/${created.group_id}`);
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : "그룹 생성 실패");
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -28,9 +69,10 @@ export default function GroupNewPage() {
 
       <div className="flex-1 overflow-y-auto px-4 py-5">
         <div className="flex flex-col gap-5">
-          {/* 이모지 선택 */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-text-primary">그룹 이모지</label>
+            <label className="mb-2 block text-sm font-medium text-text-primary">
+              그룹 이모지
+            </label>
             <div className="flex gap-2 flex-wrap">
               {EMOJIS.map((emoji) => (
                 <button
@@ -50,7 +92,6 @@ export default function GroupNewPage() {
             </div>
           </div>
 
-          {/* 그룹명 */}
           <TextInput
             label="그룹명"
             placeholder="그룹 이름을 입력하세요"
@@ -58,39 +99,43 @@ export default function GroupNewPage() {
             onChange={(e) => setName(e.target.value)}
           />
 
-          {/* 소개 */}
-          <TextInput
-            label="소개 (선택)"
-            placeholder="그룹 소개를 입력하세요"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-
-          {/* 멤버 초대 */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-text-primary">멤버 초대</label>
-            <div className="divide-y divide-border rounded-2xl border border-border">
-              {ACCEPTED_FRIENDS.map((f) => (
-                <div key={f.id} className="flex items-center px-3">
-                  <div className="flex-1">
-                    <FriendItem friend={f} variant="friend" />
+            <label className="mb-2 block text-sm font-medium text-text-primary">
+              멤버 초대 ({selectedMembers.size}명)
+            </label>
+            {friends.length === 0 ? (
+              <p className="rounded-2xl border border-border px-4 py-6 text-center text-sm text-text-secondary">
+                아직 친구가 없어요. 친구를 먼저 추가해보세요.
+              </p>
+            ) : (
+              <div className="divide-y divide-border rounded-2xl border border-border">
+                {friends.map((f) => (
+                  <div key={f.id} className="flex items-center px-3">
+                    <div className="flex-1">
+                      <FriendItem friend={f} variant="friend" />
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={selectedMembers.has(f.id)}
+                      onChange={() => toggleMember(f.id)}
+                      className="h-5 w-5 accent-primary"
+                    />
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={selectedMembers.includes(f.id)}
-                    onChange={() => toggleMember(f.id)}
-                    className="h-5 w-5 accent-primary"
-                  />
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       <div className="border-t border-border px-4 py-4">
-        <Button fullWidth size="lg" disabled={!name}>
-          그룹 만들기
+        <Button
+          fullWidth
+          size="lg"
+          disabled={!name.trim() || submitting}
+          onClick={handleSubmit}
+        >
+          {submitting ? "만드는 중..." : "그룹 만들기"}
         </Button>
       </div>
     </div>

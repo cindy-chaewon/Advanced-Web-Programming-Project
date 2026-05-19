@@ -5,17 +5,38 @@ type ProfileHeaderProps = {
   name: string;
   bio?: string;
   avatar?: string;
+  level?: number;
+  points?: number;
   stats: { posts: number; reviews: number; scraps: number; friends: number };
 };
 
-export default function ProfileHeader({ name, bio, avatar, stats }: ProfileHeaderProps) {
+export default function ProfileHeader({
+  name,
+  bio,
+  avatar,
+  level,
+  points,
+  stats,
+}: ProfileHeaderProps) {
   return (
     <div className="bg-white px-5 py-6">
       <div className="flex items-center gap-4">
         <Avatar name={name} src={avatar} size="xl" />
         <div className="flex-1">
-          <p className="text-lg font-bold text-text-primary">{name}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-lg font-bold text-text-primary">{name}</p>
+            {level !== undefined && level > 0 && (
+              <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-white">
+                Lv.{level}
+              </span>
+            )}
+          </div>
           {bio && <p className="mt-0.5 text-sm text-text-secondary line-clamp-2">{bio}</p>}
+          {points !== undefined && points > 0 && (
+            <p className="mt-1 text-sm font-semibold text-brown">
+              🪙 {points.toLocaleString()}P
+            </p>
+          )}
           <Link
             href="/my/edit"
             className="mt-2 inline-block rounded-lg border border-border px-3 py-1 text-xs font-medium text-text-secondary active:bg-surface"

@@ -1,17 +1,44 @@
 "use client";
 
-import SettingsItem from "@/components/my/SettingsItem";
 import PageHeader from "@/components/layout/PageHeader";
+import SettingsItem from "@/components/my/SettingsItem";
+import { ApiError, api } from "@/lib/api";
+import { logout } from "@/lib/auth";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [isLangModalOpen, setIsLangModalOpen] = useState(false);
   const [currentLang, setCurrentLang] = useState("한국어");
   const [tempLang, setTempLang] = useState("한국어");
+  const [withdrawing, setWithdrawing] = useState(false);
 
   const handleLangConfirm = () => {
     setCurrentLang(tempLang);
     setIsLangModalOpen(false);
+  };
+
+  const handleLogout = async () => {
+    if (!confirm("로그아웃 하시겠습니까?")) return;
+    try {
+      await api.post("/auth/logout");
+    } catch {}
+    logout();
+    router.replace("/login");
+  };
+
+  const handleWithdraw = async () => {
+    if (!confirm("정말 탈퇴하시겠습니까? 모든 데이터가 삭제됩니다.")) return;
+    setWithdrawing(true);
+    try {
+      await api.delete("/users/me");
+      logout();
+      router.replace("/login");
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : "탈퇴 실패");
+      setWithdrawing(false);
+    }
   };
 
   return (
@@ -62,8 +89,12 @@ export default function SettingsPage() {
 
           {/* 로그아웃 / 회원 탈퇴 (보통 제일 아래에 분리합니다) */}
           <section className="bg-white flex flex-col divide-y divide-border">
-            <SettingsItem label="로그아웃" danger onClick={() => {}} />
-            <SettingsItem label="회원 탈퇴" danger onClick={() => {}} />
+            <SettingsItem label="로그아웃" danger onClick={handleLogout} />
+            <SettingsItem
+              label={withdrawing ? "탈퇴 중..." : "회원 탈퇴"}
+              danger
+              onClick={handleWithdraw}
+            />
           </section>
 
           <p className="py-4 text-center text-xs text-text-disabled">

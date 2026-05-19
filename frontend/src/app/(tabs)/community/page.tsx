@@ -3,9 +3,15 @@
 import PostCard from "@/components/community/PostCard";
 import TabBar from "@/components/layout/TabBar";
 import EmptyState from "@/components/ui/EmptyState";
-import { SAMPLE_POSTS } from "@/lib/mockData";
+import { PostCardSkeleton } from "@/components/ui/Skeleton";
+import { ApiError, api } from "@/lib/api";
+import type { Post } from "@/lib/mockData";
+import type { PostBriefApi } from "@/types/api";
+import { toPost } from "@/types/api";
 import Link from "next/link";
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+
+const FALLBACK_CENTER = { lat: 37.4516, lng: 127.1306 };
 
 const TABS = [
   { key: "popular", label: "인기" },
@@ -13,19 +19,19 @@ const TABS = [
   { key: "latest", label: "최신" },
 ];
 
-function PencilIcon() {
+function PencilIcon({ size = 22, color = "#1a1a1a" }: { size?: number; color?: string }) {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <path
         d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-        stroke="#1a1a1a"
+        stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
         d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-        stroke="#1a1a1a"
+        stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -34,19 +40,43 @@ function PencilIcon() {
   );
 }
 
-export default function CommunityPage() {
-  const [activeTab, setActiveTab] = useState("popular");
+function SearchIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <circle cx="11" cy="11" r="7" stroke="#1a1a1a" strokeWidth="2" />
+      <path d="M16.5 16.5L21 21" stroke="#1a1a1a" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
 
-  // 🌟 드롭다운 필터 상태
-  const [filterType, setFilterType] = useState("all"); // 리뷰 형태 (간단/블로그)
-  const [ratingFilter, setRatingFilter] = useState("all"); // 평점 (5/4/3/2/1)
+function BellIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"
+        stroke="#1a1a1a"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export default function CommunityPage() {
+  const [activeTab, setActiveTab] = useState<"popular" | "nearby" | "latest">("popular");
+  const [filterType, setFilterType] = useState<"all" | "simple" | "blog">("all");
+  const [ratingFilter, setRatingFilter] = useState("all");
+
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const [isFilterVisible, setIsFilterVisible] = useState(true);
   const lastScrollY = useRef(0);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const currentScrollY = e.currentTarget.scrollTop;
-
     if (currentScrollY > lastScrollY.current && currentScrollY > 20) {
       setIsFilterVisible(false);
     } else if (currentScrollY < lastScrollY.current) {
@@ -55,42 +85,61 @@ export default function CommunityPage() {
     lastScrollY.current = currentScrollY;
   };
 
-  // 🌟 1. 다중 필터 적용 (리뷰 형태 + 평점)
-  const filteredPosts = SAMPLE_POSTS.filter((post) => {
-    // 형태 필터
-    if (filterType === "simple" && post.type !== "simple") return false;
-    if (filterType === "blog" && post.type === "simple") return false;
+  // 서버 호출: sort + type 필터 변경 시 fetch
+  useEffect(() => {
+    const ac = new AbortController();
+    setLoading(true);
+    setLoadError(null);
 
-    // 평점 필터 (소수점은 내림 처리하여 4.5점도 '4점' 대역으로 인식)
-    if (ratingFilter !== "all") {
-      const postRating = post.rating ?? 0;
-      if (Math.floor(postRating) !== parseInt(ratingFilter)) return false;
+    const query: Record<string, string | number> = {
+      sort: activeTab,
+      limit: 50,
+    };
+    if (filterType !== "all") query.type = filterType;
+    if (activeTab === "nearby") {
+      query.lat = FALLBACK_CENTER.lat;
+      query.lng = FALLBACK_CENTER.lng;
+      query.radius = 2000;
     }
 
-    return true; // 모든 조건을 통과하면 화면에 표시
-  });
+    api
+      .get<PostBriefApi[]>("/posts", { query, auth: false, signal: ac.signal })
+      .then((data) => setPosts(data.map(toPost)))
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setLoadError(err instanceof ApiError ? err.message : "글을 불러오지 못했어요");
+      })
+      .finally(() => setLoading(false));
 
-  // 2. 탭(인기/최신 등) 정렬
-  const sortedPosts =
-    activeTab === "popular"
-      ? [...filteredPosts].sort((a, b) => b.likeCount - a.likeCount)
-      : activeTab === "latest"
-        ? [...filteredPosts].sort((a, b) =>
-            b.createdAt.localeCompare(a.createdAt),
-          )
-        : filteredPosts;
+    return () => ac.abort();
+  }, [activeTab, filterType]);
+
+  // 클라이언트 측: 평점 필터만 (서버에는 endpoint 없음)
+  const displayedPosts =
+    ratingFilter === "all"
+      ? posts
+      : posts.filter((p) => Math.floor(p.rating ?? 0) === Number.parseInt(ratingFilter, 10));
 
   return (
-    <div className="flex h-full flex-col bg-white overflow-hidden">
+    <div className="relative flex h-full flex-col bg-white overflow-hidden">
       {/* 상단 고정 영역 */}
       <div className="z-20 shrink-0 bg-white">
         <div className="flex items-center justify-between border-b border-border px-4 py-4">
           <h1 className="text-lg font-bold text-text-primary">커뮤니티</h1>
-          <Link href="/community/write">
-            <PencilIcon />
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/search" aria-label="검색">
+              <SearchIcon />
+            </Link>
+            <Link href="/my/notifications" aria-label="알림">
+              <BellIcon />
+            </Link>
+          </div>
         </div>
-        <TabBar tabs={TABS} activeKey={activeTab} onChange={setActiveTab} />
+        <TabBar
+          tabs={TABS}
+          activeKey={activeTab}
+          onChange={(k) => setActiveTab(k as "popular" | "nearby" | "latest")}
+        />
       </div>
 
       {/* 🌟 드롭다운 필터 바 (gap-2를 주어 버튼을 나란히 배치) */}
@@ -103,7 +152,7 @@ export default function CommunityPage() {
       >
         <select
           value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
+          onChange={(e) => setFilterType(e.target.value as "all" | "simple" | "blog")}
           className="rounded-lg border border-border bg-white px-3 py-1.5 text-sm font-medium text-text-primary outline-none focus:border-brown cursor-pointer"
         >
           <option value="all">모든 리뷰</option>
@@ -130,9 +179,23 @@ export default function CommunityPage() {
         className="flex-1 overflow-y-auto px-4 py-4 bg-surface"
         onScroll={handleScroll}
       >
-        {sortedPosts.length > 0 ? (
+        {loadError ? (
+          <div className="mt-10">
+            <EmptyState
+              icon="⚠️"
+              title="글을 불러오지 못했어요"
+              description={loadError}
+            />
+          </div>
+        ) : loading && displayedPosts.length === 0 ? (
           <div className="flex flex-col gap-5">
-            {sortedPosts.map((post) => (
+            <PostCardSkeleton />
+            <PostCardSkeleton />
+            <PostCardSkeleton />
+          </div>
+        ) : displayedPosts.length > 0 ? (
+          <div className="flex flex-col gap-5">
+            {displayedPosts.map((post) => (
               <div
                 key={post.id}
                 className="flex flex-col gap-2 bg-white p-4 border border-border rounded-2xl shadow-sm"
@@ -163,6 +226,15 @@ export default function CommunityPage() {
           </div>
         )}
       </div>
+
+      {/* 작성 FAB (우하단) */}
+      <Link
+        href="/community/write"
+        aria-label="글 작성"
+        className="absolute bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg transition-transform active:scale-95"
+      >
+        <PencilIcon size={24} color="#1a1a1a" />
+      </Link>
     </div>
   );
 }

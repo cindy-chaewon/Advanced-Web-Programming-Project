@@ -1,4 +1,7 @@
+"use client";
+
 import Button from "@/components/ui/Button";
+import { useRouter } from "next/navigation";
 
 function HiFiveLogo() {
   return (
@@ -16,10 +19,37 @@ function HiFiveLogo() {
   );
 }
 
+function buildKakaoAuthorizeUrl(): string | null {
+  const clientId = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID;
+  const redirectUri = process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI;
+  if (!clientId || !redirectUri) return null;
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+  });
+  return `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
+}
+
 export default function LoginPage() {
+  const router = useRouter();
+
+  const handleKakao = () => {
+    const url = buildKakaoAuthorizeUrl();
+    if (!url) {
+      alert("카카오 키가 설정되지 않았어요 (.env.local 확인)");
+      return;
+    }
+    window.location.href = url;
+  };
+
+  const handleCert = () => {
+    // 인증서 로그인은 발표 후 통합 — 일단 데모용 홈 이동만.
+    router.push("/");
+  };
+
   return (
     <div className="flex h-full flex-col items-center justify-between px-6 py-12">
-      {/* 로고 영역 */}
       <div className="flex flex-1 flex-col items-center justify-center gap-6">
         <HiFiveLogo />
         <div className="flex flex-col items-center gap-2 text-center">
@@ -29,7 +59,6 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* 허니콤 일러스트 */}
         <div className="my-4 flex gap-3">
           {["🍜", "🍱", "☕", "🍕", "🍣"].map((emoji, i) => (
             <div
@@ -43,9 +72,8 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* 로그인 버튼 */}
       <div className="flex w-full flex-col gap-3">
-        <Button variant="kakao" size="lg" fullWidth>
+        <Button variant="kakao" size="lg" fullWidth onClick={handleKakao}>
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path
               d="M10 2C5.582 2 2 4.91 2 8.5c0 2.27 1.404 4.27 3.52 5.44L4.8 17l3.82-2.28C9.07 14.9 9.53 15 10 15c4.418 0 8-2.91 8-6.5S14.418 2 10 2z"
@@ -54,12 +82,11 @@ export default function LoginPage() {
           </svg>
           카카오로 시작하기
         </Button>
-        <Button variant="secondary" size="lg" fullWidth>
+        <Button variant="secondary" size="lg" fullWidth onClick={handleCert}>
           인증서로 로그인
         </Button>
       </div>
 
-      {/* 약관 */}
       <p className="mt-4 text-center text-xs text-text-disabled">
         로그인 시{" "}
         <span className="underline">이용약관</span>

@@ -7,8 +7,16 @@ import ImageGallery from "@/components/restaurant/ImageGallery";
 import StarRating from "@/components/restaurant/StarRating";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
-import { SAMPLE_RESTAURANTS, SAMPLE_REVIEWS } from "@/lib/mockData";
-import { use, useState } from "react";
+import { ApiError, api } from "@/lib/api";
+import type { Restaurant, Review } from "@/lib/mockData";
+import type {
+  AiReviewApi,
+  MenuApi,
+  RestaurantReadApi,
+  ReviewReadApi,
+} from "@/types/api";
+import { toRestaurant, toReview } from "@/types/api";
+import { use, useEffect, useState } from "react";
 
 const TABS = [
   { key: "info", label: "정보" },
@@ -24,10 +32,56 @@ export default function RestaurantDetailPage({
   const { id } = use(params);
   const [activeTab, setActiveTab] = useState("info");
   const [isScrolled, setIsScrolled] = useState(false);
+  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [aiReview, setAiReview] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const restaurant =
-    SAMPLE_RESTAURANTS.find((r) => r.id === id) ?? SAMPLE_RESTAURANTS[0];
-  const reviews = SAMPLE_REVIEWS;
+  useEffect(() => {
+    const ac = new AbortController();
+    setLoadError(null);
+    Promise.all([
+      api.get<RestaurantReadApi>(`/restaurants/${id}`, { auth: false, signal: ac.signal }),
+      api.get<MenuApi[]>(`/restaurants/${id}/menus`, { auth: false, signal: ac.signal }),
+      api.get<ReviewReadApi[]>(`/restaurants/${id}/reviews`, {
+        query: { limit: 50 },
+        auth: false,
+        signal: ac.signal,
+      }),
+    ])
+      .then(([r, menus, rvs]) => {
+        setRestaurant(toRestaurant(r, menus));
+        setReviews(rvs.map(toReview));
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setLoadError(err instanceof ApiError ? err.message : "식당 정보를 불러오지 못했어요");
+      });
+
+    api
+      .get<AiReviewApi>(`/restaurants/${id}/ai-review`, { auth: false, signal: ac.signal })
+      .then((data) => setAiReview(data.review))
+      .catch(() => {}); // AI 평가는 실패해도 페이지 자체에는 영향 없음
+
+    return () => ac.abort();
+  }, [id]);
+
+  if (loadError) {
+    return (
+      <div className="flex h-full items-center justify-center px-6 text-center">
+        <p className="text-sm text-text-secondary">{loadError}</p>
+      </div>
+    );
+  }
+
+  if (!restaurant) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
   const signatureMenus = restaurant.menus.filter((m) => m.isSignature);
   const allMenus = restaurant.menus;
 
@@ -243,18 +297,19 @@ export default function RestaurantDetailPage({
                   ))}
                 </div>
               </div>
-              <div className="mb-4 rounded-2xl bg-primary/10 p-4">
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="text-xl">🤖</span>
-                  <span className="text-sm font-bold text-brown">
-                    AI 종합 평가
-                  </span>
+              {aiReview && (
+                <div className="mb-4 rounded-2xl bg-primary/10 p-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="text-xl">🤖</span>
+                    <span className="text-sm font-bold text-brown">
+                      AI 종합 평가
+                    </span>
+                  </div>
+                  <p className="whitespace-pre-line text-sm leading-relaxed text-text-primary">
+                    {aiReview}
+                  </p>
                 </div>
-                <p className="text-sm leading-relaxed text-text-primary">
-                  평가 들어갈 곳 (헷갈려서 제가 잠깐 해당 텍스트로
-                  대체해둡니다.)
-                </p>
-              </div>
+              )}
               <div className="flex flex-col divide-y divide-border">
                 {reviews.map((review) => (
                   <div key={review.id} className="py-4">
@@ -272,11 +327,32 @@ export default function RestaurantDetailPage({
                         {review.createdAt}
                       </span>
                     </div>
-                    <p className="text-sm leading-relaxed text-text-secondary">
+                    <p className="whitespace-pre-line text-sm leading-relaxed text-text-secondary">
                       {review.content}
                     </p>
-                    <div className="mt-2 flex items-center gap-1 text-xs text-text-disabled">
-                      <span>👍 {review.likeCount}</span>
+                    {review.images && review.images.length > 0 && (
+                      <div className="mt-2 flex gap-2 overflow-x-auto">
+                        {review.images.slice(0, 4).map((url, i) => (
+                          <div
+                            key={url + i}
+                            className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-surface"
+                          >
+                            <img
+                              src={url}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                        ))}
+                        {review.images.length > 4 && (
+                          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-surface text-xs font-medium text-text-secondary">
+                            +{review.images.length - 4}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className="mt-2 flex items-center gap-3 text-xs text-text-disabled">
+                      <span>❤ {review.likeCount}</span>
                     </div>
                   </div>
                 ))}

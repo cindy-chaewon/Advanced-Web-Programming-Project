@@ -1,14 +1,22 @@
 "use client";
 
-import KakaoMap from "@/components/map/KakaoMap";
+import PostCard from "@/components/community/PostCard";
 import PageHeader from "@/components/layout/PageHeader";
 import TabBar from "@/components/layout/TabBar";
-import PostCard from "@/components/community/PostCard";
 import RestaurantCard from "@/components/restaurant/RestaurantCard";
 import Avatar from "@/components/ui/Avatar";
 import EmptyState from "@/components/ui/EmptyState";
-import { SAMPLE_FRIENDS, SAMPLE_PINS, SAMPLE_POSTS } from "@/lib/mockData";
-import { use, useState } from "react";
+import { ApiError, api } from "@/lib/api";
+import { isLoggedIn } from "@/lib/auth";
+import type { Post, RestaurantPin } from "@/lib/mockData";
+import type {
+  PostBriefApi,
+  RestaurantBriefApi,
+  UserDetailApi,
+} from "@/types/api";
+import { toPost, toRestaurantPin } from "@/types/api";
+import { useRouter } from "next/navigation";
+import { use, useEffect, useState } from "react";
 
 const TABS = [
   { key: "reviews", label: "작성 리뷰" },
@@ -22,49 +30,109 @@ export default function FriendProfilePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const friend = SAMPLE_FRIENDS.find((f) => f.id === id) ?? SAMPLE_FRIENDS[0];
+  const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState("reviews");
-  const [isRequested, setIsRequested] = useState(false); // 친구 요청을 보냈는지 상태 관리
+  const [user, setUser] = useState<UserDetailApi | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [scraps, setScraps] = useState<RestaurantPin[]>([]);
+  const [activeTab, setActiveTab] = useState<"reviews" | "blogs" | "scraps">("reviews");
+  const [isRequested, setIsRequested] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // 🌟 핵심: 현재 친구 상태인지 확인하는 변수
-  // (실제 백엔드 연결 시에는 서버에서 받아온 정보를 바탕으로 true/false가 결정됩니다)
-  const isFriend = friend.status === "friend";
+  useEffect(() => {
+    if (!isLoggedIn()) {
+      router.replace("/login");
+      return;
+    }
+    const ac = new AbortController();
+    api
+      .get<UserDetailApi>(`/users/${id}`, { signal: ac.signal })
+      .then((u) => {
+        setUser(u);
+        if (u.friend_status === "accepted") {
+          return Promise.all([
+            api.get<PostBriefApi[]>(`/users/${id}/posts`, { signal: ac.signal }),
+            api.get<RestaurantBriefApi[]>(`/users/${id}/scraps`, { signal: ac.signal }),
+          ]).then(([ps, ss]) => {
+            setPosts(ps.map(toPost));
+            setScraps(ss.map(toRestaurantPin));
+          });
+        }
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(err instanceof ApiError ? err.message : "프로필을 불러오지 못했어요");
+      });
+    return () => ac.abort();
+  }, [id, router]);
 
-  const simpleReviews = SAMPLE_POSTS.filter((p) => p.type === "simple");
-  const blogPosts = SAMPLE_POSTS.filter((p) => p.type !== "simple");
-  const scraps = SAMPLE_PINS;
-
-  // 친구 추가 버튼 클릭 함수
-  const handleRequestFriend = () => {
-    setIsRequested(true);
-    alert("친구 요청을 보냈습니다!");
+  const handleRequestFriend = async () => {
+    try {
+      await api.post("/friends/request", { target_user_id: Number(id) });
+      setIsRequested(true);
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : "요청 실패");
+    }
   };
+
+  if (error) {
+    return (
+      <div className="flex h-full flex-col">
+        <PageHeader leftAction="back" />
+        <div className="flex flex-1 items-center justify-center px-6 text-center">
+          <p className="text-sm text-text-secondary">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex h-full flex-col">
+        <PageHeader leftAction="back" />
+        <div className="flex flex-1 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      </div>
+    );
+  }
+
+  const isFriend = user.friend_status === "accepted" || user.friend_status === "self";
+  const simpleReviews = posts.filter((p) => p.type === "simple");
+  const blogPosts = posts.filter((p) => p.type !== "simple");
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-surface">
-      <PageHeader title={`${friend.name}님의 프로필`} leftAction="back" />
+      <PageHeader title={`${user.username}님의 프로필`} leftAction="back" />
 
       <div className="flex-1 overflow-y-auto">
-        {/* 프로필 정보 영역 */}
         <div className="bg-white px-4 py-6">
           <div className="flex flex-col items-center gap-3">
-            <Avatar name={friend.name} src={friend.avatar} size="lg" />
+            <Avatar
+              name={user.username}
+              src={user.profile_image ?? undefined}
+              size="lg"
+            />
             <div className="text-center">
               <h2 className="text-xl font-bold text-text-primary">
-                {friend.name}
+                {user.username}
               </h2>
               <p className="mt-1 text-sm text-text-secondary">
-                {(friend as any).statusMessage || "맛있는 걸 좋아하는 미식가"}
+                {user.bio || "맛있는 걸 좋아하는 미식가"}
+              </p>
+              <p className="mt-2 text-xs text-text-disabled">
+                글 {user.post_count} · 리뷰 {user.review_count} · 친구 {user.friend_count}
+                {user.level ? ` · Lv.${user.level}` : ""}
               </p>
             </div>
 
-            {isFriend ? (
+            {user.friend_status === "self" ? null : isFriend ? (
               <div className="mt-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-brown">
                 나와 단짝 친구
               </div>
-            ) : isRequested ? (
+            ) : user.friend_status === "pending" || isRequested ? (
               <button
+                type="button"
                 disabled
                 className="mt-2 rounded-full bg-surface px-4 py-1.5 text-xs font-bold text-text-secondary"
               >
@@ -72,6 +140,7 @@ export default function FriendProfilePage({
               </button>
             ) : (
               <button
+                type="button"
                 onClick={handleRequestFriend}
                 className="mt-2 rounded-full bg-brown px-4 py-1.5 text-xs font-bold text-white transition-opacity active:opacity-80"
               >
@@ -81,81 +150,46 @@ export default function FriendProfilePage({
           </div>
         </div>
 
-        {/* 🌟 친구일 때만 맛집 지도와 탭 내용을 보여주고, 아니면 자물쇠 화면을 보여줍니다 */}
         {isFriend ? (
-          <>
-            {/* 친구 맛집 지도 */}
-            <div className="mt-2 bg-white">
-              <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                <h3 className="text-sm font-bold text-text-primary">
-                  친구가 다녀간 맛집 🗺️
-                </h3>
-                <span className="text-xs font-medium text-text-secondary">
-                  총 {scraps.length}곳
-                </span>
-              </div>
-              <div className="h-60 w-full">
-                <KakaoMap
-                  pins={scraps}
-                  center={{ lat: 37.4979, lng: 127.0276 }}
-                  level={5}
-                  className="h-full"
-                />
-              </div>
+          <div className="mt-2 flex-1 bg-white min-h-[400px]">
+            <div className="sticky top-0 z-10 border-b border-border bg-white">
+              <TabBar
+                tabs={TABS}
+                activeKey={activeTab}
+                onChange={(k) => setActiveTab(k as "reviews" | "blogs" | "scraps")}
+              />
             </div>
 
-            {/* 하단 활동 내역 탭 & 리스트 */}
-            <div className="mt-2 flex-1 bg-white min-h-[400px]">
-              <div className="sticky top-0 z-10 border-b border-border bg-white">
-                <TabBar
-                  tabs={TABS}
-                  activeKey={activeTab}
-                  onChange={setActiveTab}
-                />
-              </div>
-
-              <div className="px-4 py-4">
-                {activeTab === "reviews" && (
-                  <div className="flex flex-col gap-4">
-                    {simpleReviews.length > 0 ? (
-                      simpleReviews.map((post) => (
-                        <PostCard key={post.id} post={post} />
-                      ))
-                    ) : (
-                      <EmptyState icon="📝" title="작성한 리뷰가 없어요" />
-                    )}
-                  </div>
-                )}
-
-                {activeTab === "blogs" && (
-                  <div className="flex flex-col gap-4">
-                    {blogPosts.length > 0 ? (
-                      blogPosts.map((post) => (
-                        <PostCard key={post.id} post={post} />
-                      ))
-                    ) : (
-                      <EmptyState icon="📓" title="작성한 블로그가 없어요" />
-                    )}
-                  </div>
-                )}
-
-                {activeTab === "scraps" && (
-                  <div className="divide-y divide-border">
-                    {scraps.length > 0 ? (
-                      scraps.map((restaurant) => (
-                        <RestaurantCard
-                          key={restaurant.id}
-                          restaurant={restaurant}
-                        />
-                      ))
-                    ) : (
-                      <EmptyState icon="🔖" title="스크랩한 맛집이 없어요" />
-                    )}
-                  </div>
-                )}
-              </div>
+            <div className="px-4 py-4">
+              {activeTab === "reviews" && (
+                <div className="flex flex-col gap-4">
+                  {simpleReviews.length > 0 ? (
+                    simpleReviews.map((p) => <PostCard key={p.id} post={p} />)
+                  ) : (
+                    <EmptyState icon="📝" title="작성한 리뷰가 없어요" />
+                  )}
+                </div>
+              )}
+              {activeTab === "blogs" && (
+                <div className="flex flex-col gap-4">
+                  {blogPosts.length > 0 ? (
+                    blogPosts.map((p) => <PostCard key={p.id} post={p} />)
+                  ) : (
+                    <EmptyState icon="📓" title="작성한 블로그가 없어요" />
+                  )}
+                </div>
+              )}
+              {activeTab === "scraps" && (
+                <div className="divide-y divide-border">
+                  {scraps.length > 0 ? (
+                    scraps.map((r) => <RestaurantCard key={r.id} restaurant={r} />)
+                  ) : (
+                    <EmptyState icon="🔖" title="스크랩한 맛집이 없어요" />
+                  )}
+                </div>
+              )}
             </div>
-          </>
+          </div>
         ) : (
           <div className="mt-2 flex min-h-[300px] flex-1 flex-col items-center justify-center bg-white px-4 py-20 text-center">
             <span className="mb-4 text-5xl opacity-80">🔒</span>
